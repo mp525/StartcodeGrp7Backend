@@ -1,5 +1,7 @@
 package rest;
 
+import dto.CarDTO;
+import entities.Car;
 import entities.User;
 import entities.Role;
 
@@ -8,13 +10,19 @@ import static io.restassured.RestAssured.given;
 import io.restassured.http.ContentType;
 import io.restassured.parsing.Parser;
 import java.net.URI;
+import java.util.List;
 import javax.persistence.EntityManager;
 import javax.persistence.EntityManagerFactory;
 import javax.ws.rs.core.UriBuilder;
 import org.glassfish.grizzly.http.server.HttpServer;
+import org.glassfish.grizzly.http.util.HttpStatus;
 import org.glassfish.jersey.grizzly2.httpserver.GrizzlyHttpServerFactory;
 import org.glassfish.jersey.server.ResourceConfig;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.hasItems;
+import static org.hamcrest.Matchers.notNullValue;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -27,7 +35,9 @@ public class LoginEndpointTest {
 
     private static final int SERVER_PORT = 7777;
     private static final String SERVER_URL = "http://localhost/api";
-
+private Car c1;
+    private Car c2;
+    private Car c3;
     static final URI BASE_URI = UriBuilder.fromUri(SERVER_URL).port(SERVER_PORT).build();
     private static HttpServer httpServer;
     private static EntityManagerFactory emf;
@@ -64,6 +74,9 @@ public class LoginEndpointTest {
     public void setUp() {
         EntityManager em = emf.createEntityManager();
         try {
+            c1=new Car (new CarDTO("BMW","11","Bono",2000));
+            c2=new Car (new CarDTO("HEUNDAI","21","Belgien",2000));
+            c3=new Car (new CarDTO("UNO","22","Danmark",2000));
             em.getTransaction().begin();
             //Delete existing users and roles to get a "fresh" database
             em.createQuery("delete from User").executeUpdate();
@@ -83,6 +96,9 @@ public class LoginEndpointTest {
             em.persist(user);
             em.persist(admin);
             em.persist(both);
+            em.persist(c1);
+            em.persist(c2);
+            em.persist(c3);
             //System.out.println("Saved test data to database");
             em.getTransaction().commit();
         } finally {
@@ -220,5 +236,53 @@ public class LoginEndpointTest {
                 .body("code", equalTo(403))
                 .body("message", equalTo("Not authenticated - do login"));
     }
+//    @Test
+//    public void ALL() {
+//        logOut();
+//                 List<CarDTO> carDTOs;
+//        carDTOs = given()
+//                .contentType("application/json")
+//                .when()
+//                .get("/car/all")
+//                .then()
+//                .extract().body().jsonPath().getList("", CarDTO.class);
+//        CarDTO p1DTO = new CarDTO(c1);
+//        CarDTO p2DTO = new CarDTO(c2);
+//        assertThat(carDTOs, containsInAnyOrder(p1DTO, p2DTO));
+//
+//    }
+    
+    @Test
+    public void testFindById() {
+         given()
+         .pathParam("id",c2.getId())
+         .get("car/id/{id}")
+         .then()
+         .assertThat()
+         .body("make", equalTo("21"))
+         .body("model", equalTo("HEUNDAI"));      
+    }
+    @Test
+    public void testApiAll() throws Exception {
+        String[] a ={"BMW","HEUNDAI"};
+        given()
+        .contentType("application/json")
+        .get("/car/all").then()
+        .assertThat()
+        .statusCode(HttpStatus.OK_200.getStatusCode())
+        .body("model", hasItems(a)); }
+    @Test
+    public void addPerson() throws Exception {
+        given()
+                .contentType("application/json")
+                .body(new CarDTO("bobo","bibi","danmark",2000))
+                .when()
+                .post("car/add")
+                .then()
+                .body("model", equalTo("bobo"))
+                .body("make", equalTo("bibi"))
+                .body("id", notNullValue());
+    }
+    
 
 }
